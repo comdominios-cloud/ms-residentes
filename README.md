@@ -7,6 +7,8 @@ del Sistema de Administracion de Condominios.
 
 ## Responsable
 
+[@Osomar1705](https://github.com/Osomar1705) — API con base de datos (Python). Ver [INTEGRANTE.md](INTEGRANTE.md).
+
 Integrante a cargo de **API con BD #1**. Este repositorio es **autonomo**: se
 desarrolla, prueba y despliega sin depender del avance de los demas
 microservicios.
