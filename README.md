@@ -166,6 +166,24 @@ Los cuatro usuarios del seed comparten la password **`condominio123`**
 | `ricardo.salazar@example.com` | RESIDENTE |
 | `teresa.ampuero@example.com` | RESIDENTE |
 
+## Coleccion de Postman
+
+[postman/ms-residentes.postman_collection.json](postman/ms-residentes.postman_collection.json)
+trae los 23 requests de la API listos para ejecutar.
+
+1. En Postman: **Import** y elegir ese archivo.
+2. Correr **`1. Auth / Login (admin)`**. Un script guarda el token en la variable
+   `{{token}}`, asi que el resto de los endpoints protegidos ya quedan
+   autenticados solos.
+3. Ejecutar cualquier carpeta.
+
+Incluye una carpeta **`6. Casos de error`** que demuestra que la API rechaza lo
+que tiene que rechazar: 401 sin token, 401 con password incorrecta, 404 y 422.
+
+Para apuntar a la VM de produccion en vez de local, cambiar la variable
+`base_url` de la coleccion por `http://<ip-vm-produccion>:9001`. Los 23 requests
+la usan, no hay que tocarlos uno por uno.
+
 ### Comandos utiles
 
 ```bash
@@ -206,6 +224,8 @@ docs/
 ├── seed_data.sql       # 20 filas de prueba para el avance
 └── seed_fake_data.py   # carga masiva de 20,000 registros (placeholder)
 tests/
+postman/
+└── ms-residentes.postman_collection.json   # 23 requests para la demo
 ```
 
 ## Estado
