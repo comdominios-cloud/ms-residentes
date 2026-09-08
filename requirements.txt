@@ -6,5 +6,4 @@ pydantic-settings
 sqlalchemy
 psycopg[binary]
 python-dotenv
-bcrypt
 python-jose[cryptography]

@@ -23,4 +23,3 @@ class Residente(Base):
     creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     unidad: Mapped["Unidad"] = relationship(back_populates="residentes")
-    usuarios: Mapped[list["Usuario"]] = relationship(back_populates="residente")

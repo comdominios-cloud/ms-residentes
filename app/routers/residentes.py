@@ -8,9 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
-from app.models import Residente, Unidad, Usuario
+from app.models import Residente, Unidad
 from app.schemas import ResidenteCreate, ResidenteDetalle, ResidenteOut, ResidenteUpdate
-from app.security import usuario_actual
+from app.security import UsuarioToken, usuario_actual
 
 router = APIRouter(prefix="/residentes", tags=["residentes"])
 
@@ -48,7 +48,7 @@ def obtener(residente_id: int, db: Session = Depends(get_db)) -> Residente:
 def crear(
     datos: ResidenteCreate,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(usuario_actual),
+    _: UsuarioToken = Depends(usuario_actual),
 ) -> Residente:
     if db.get(Unidad, datos.unidad_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"No existe la unidad {datos.unidad_id}")
@@ -68,7 +68,7 @@ def actualizar(
     residente_id: int,
     datos: ResidenteUpdate,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(usuario_actual),
+    _: UsuarioToken = Depends(usuario_actual),
 ) -> Residente:
     residente = db.get(Residente, residente_id)
     if residente is None:
@@ -87,7 +87,7 @@ def actualizar(
 def dar_de_baja(
     residente_id: int,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(usuario_actual),
+    _: UsuarioToken = Depends(usuario_actual),
 ) -> None:
     """Soft delete: marca `activo = false` en vez de borrar la fila.
 

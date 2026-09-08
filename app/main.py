@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db.session import get_db
-from app.routers import auth, edificios, residentes, unidades, usuarios
+from app.routers import edificios, residentes, unidades
 
 settings = get_settings()
 
@@ -18,7 +18,8 @@ app = FastAPI(
     title="ms-residentes",
     description=(
         "Microservicio de edificios, unidades y residentes del condominio. "
-        "Incluye la gestion de usuarios: register, login, alta y baja."
+        "Las cuentas y el login viven en ms-usuarios; aqui solo se verifican "
+        "los tokens que ese servicio emite."
     ),
     version="0.1.0",
     docs_url="/docs",
@@ -36,8 +37,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router)
-app.include_router(usuarios.router)
 app.include_router(edificios.router)
 app.include_router(unidades.router)
 app.include_router(residentes.router)

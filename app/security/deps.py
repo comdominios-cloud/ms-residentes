@@ -1,24 +1,20 @@
-"""Dependencias de autenticacion para los endpoints protegidos.
+"""Verificacion de tokens emitidos por ms-usuarios.
 
-Se usan asi:
+Este microservicio NO tiene tabla de usuarios: las cuentas viven en
+ms-usuarios. Aca solo se verifica la FIRMA del token con el JWT_SECRET
+compartido y se confia en los datos que trae adentro.
 
-    @router.get("/algo")
-    def handler(usuario: Usuario = Depends(usuario_actual)):
-        ...
-
-FastAPI resuelve la dependencia antes de entrar al handler: si el token falta,
-vencio o es invalido, corta con 401 y el handler nunca se ejecuta.
+No hay llamada HTTP a ms-usuarios: la verificacion es local. Si alguien
+modificara el rol dentro del token, la firma dejaria de coincidir.
 """
+
+from dataclasses import dataclass
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy.orm import Session
 
-from app.db.session import get_db
-from app.models import Usuario
 from app.security.tokens import decodificar_token
 
-# auto_error=False para poder devolver nuestro propio mensaje de error.
 esquema_bearer = HTTPBearer(auto_error=False)
 
 CREDENCIALES_INVALIDAS = HTTPException(
@@ -28,10 +24,18 @@ CREDENCIALES_INVALIDAS = HTTPException(
 )
 
 
+@dataclass(frozen=True)
+class UsuarioToken:
+    """Los datos del usuario, tal como vienen firmados dentro del token."""
+
+    id: int
+    email: str
+    rol: str
+
+
 def usuario_actual(
     credenciales: HTTPAuthorizationCredentials | None = Depends(esquema_bearer),
-    db: Session = Depends(get_db),
-) -> Usuario:
+) -> UsuarioToken:
     if credenciales is None:
         raise CREDENCIALES_INVALIDAS
 
@@ -39,15 +43,14 @@ def usuario_actual(
     if datos is None or "sub" not in datos:
         raise CREDENCIALES_INVALIDAS
 
-    usuario = db.get(Usuario, int(datos["sub"]))
-    if usuario is None or not usuario.activo:
-        raise CREDENCIALES_INVALIDAS
+    return UsuarioToken(
+        id=int(datos["sub"]),
+        email=datos.get("email", ""),
+        rol=datos.get("rol", "RESIDENTE"),
+    )
 
-    return usuario
 
-
-def solo_admin(usuario: Usuario = Depends(usuario_actual)) -> Usuario:
-    """Igual que `usuario_actual` pero ademas exige rol ADMIN."""
+def solo_admin(usuario: UsuarioToken = Depends(usuario_actual)) -> UsuarioToken:
     if usuario.rol != "ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

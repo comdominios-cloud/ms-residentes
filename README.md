@@ -1,7 +1,7 @@
 # ms-residentes
 
-Microservicio de **edificios, unidades (departamentos), residentes y usuarios**
-del Sistema de Administracion de Condominios.
+Microservicio de **edificios, unidades (departamentos) y residentes** del
+Sistema de Administracion de Condominios.
 
 > CS2032 Cloud Computing - UTEC | Proyecto: Sistema de Administracion de Condominios
 
@@ -16,10 +16,15 @@ Ver [INTEGRANTE.md](INTEGRANTE.md).
 
 ## Dominio
 
-Es la fuente de verdad sobre *quien vive donde* y *quien puede entrar al
-sistema*. Administra el catalogo de edificios, las unidades de cada edificio,
-las personas asociadas a cada unidad (propietarios e inquilinos) y las **cuentas
-de usuario**: register, login, alta y baja.
+Es la fuente de verdad sobre *quien vive donde*. Administra el catalogo de
+edificios, las unidades de cada edificio y las personas asociadas a cada unidad
+(propietarios e inquilinos).
+
+Las **cuentas de acceso** (register, login) **no viven aca**: son del
+microservicio [ms-usuarios](https://github.com/comdominios-cloud/ms-usuarios),
+que tiene su propia base. Esta API solo **verifica** la firma de los tokens que
+ese servicio emite, usando el mismo `JWT_SECRET`. No hay llamada HTTP entre los
+dos: la verificacion es local.
 
 Este microservicio **no llama** a ningun otro. Es consumido por
 **ms-ficha-residente**, que es el consumidor de APIs del proyecto.
@@ -39,11 +44,11 @@ web-condominio ──> balanceador ──> ms-residentes :9001 ──> PostgreSQ
 | Framework   | FastAPI                   |
 | Base de datos | **PostgreSQL 16** (SQL) |
 | ORM         | SQLAlchemy + psycopg      |
-| Autenticacion | bcrypt (hash) + JWT     |
+| Autenticacion | verifica JWT emitidos por ms-usuarios |
 | Documentacion | Swagger-UI en `/docs`   |
 | Contenedor  | Docker                    |
 
-**Tablas relacionadas:** `edificios` -> `unidades` -> `residentes` -> `usuarios`
+**Tablas relacionadas:** `edificios` -> `unidades` -> `residentes`
 (la relacion exigida por el curso es **unidades <- residentes**).
 Ver [docs/schema.sql](docs/schema.sql) y [docs/der.md](docs/der.md).
 
@@ -61,6 +66,7 @@ que se habilita en el Security Group.
 | ms-incidencias| 9003      | 3003    |
 | ms-ficha-residente | 9004 | 8004    |
 | ms-analitico  | 9005      | 8005    |
+| ms-usuarios   | 9006      | 8000    |
 | web-condominio (dev) | 5173 | —     |
 
 Las bases de datos **no** entran en ese rango: PostgreSQL 5432, MySQL 3306,
@@ -71,29 +77,21 @@ y la VM de ingesta.
 
 > Andamiaje: aun no implementados.
 
-### Usuarios (pedido explicito del ACL)
-
 | # | Metodo | Ruta | Descripcion | Consumido por |
 |---|--------|------|-------------|---------------|
-| 1 | `POST` | `/auth/register` | Registra una cuenta nueva | **frontend** |
-| 2 | `POST` | `/auth/login` | Autentica y devuelve el token | **frontend** |
-| 3 | `GET`  | `/usuarios` | Lista de cuentas | frontend |
-| 4 | `POST` | `/usuarios` | Crea una cuenta (admin) | frontend |
-| 5 | `DELETE` | `/usuarios/{usuario_id}` | Elimina/desactiva una cuenta | frontend |
+| 1 | `GET`  | `/edificios` | Lista los edificios del condominio | frontend |
+| 2 | `GET`  | `/edificios/{edificio_id}` | Detalle de un edificio | frontend |
+| 3 | `GET`  | `/unidades?edificio_id=` | Lista unidades, filtrables por edificio | frontend |
+| 4 | `GET`  | `/unidades/{unidad_id}` | Detalle de una unidad con su edificio | ms-ficha-residente |
+| 5 | `GET`  | `/residentes` | Lista paginada de residentes | **frontend** |
+| 6 | `GET`  | `/residentes/{residente_id}` | Detalle de un residente con su unidad | **frontend**, ms-ficha-residente |
+| 7 | `POST` | `/residentes` | Registra un residente *(requiere token)* | frontend |
+| 8 | `PUT`  | `/residentes/{residente_id}` | Actualiza el residente *(requiere token)* | frontend |
+| 9 | `DELETE` | `/residentes/{residente_id}` | Baja logica *(requiere token)* | frontend |
+| 10| `GET`  | `/health` | Health check, comprueba tambien la BD | infra |
 
-### Residentes y unidades
-
-| # | Metodo | Ruta | Descripcion | Consumido por |
-|---|--------|------|-------------|---------------|
-| 6 | `GET`  | `/edificios` | Lista los edificios del condominio | frontend |
-| 7 | `GET`  | `/unidades?edificio_id=` | Lista unidades, filtrables por edificio | frontend |
-| 8 | `GET`  | `/unidades/{unidad_id}` | Detalle de una unidad | ms-ficha-residente |
-| 9 | `GET`  | `/residentes` | Lista paginada de residentes | **frontend** |
-| 10| `GET`  | `/residentes/{residente_id}` | Detalle de un residente con su unidad | **frontend**, ms-ficha-residente |
-| 11| `POST` | `/residentes` | Registra un nuevo residente en una unidad | frontend |
-| 12| `PUT`  | `/residentes/{residente_id}` | Actualiza datos del residente | frontend |
-| 13| `DELETE` | `/residentes/{residente_id}` | Da de baja a un residente | frontend |
-| 14| `GET`  | `/health` | Health check del servicio | infra |
+Las lecturas son **publicas**; las escrituras exigen un token emitido por
+`ms-usuarios`.
 
 Documentacion interactiva: `http://<ip-vm-produccion>:9001/docs` (Swagger-UI).
 
@@ -114,7 +112,7 @@ Copiar [.env.example](.env.example) a `.env` y completar. **Nunca** commitear `.
 | `POSTGRES_USER` | Usuario de la base | *(sin valor en el repo)* |
 | `POSTGRES_PASSWORD` | Password del usuario | *(sin valor en el repo)* |
 | `DATABASE_URL` | Cadena de conexion completa | `postgresql+psycopg://user:pass@host:5432/condominio_residentes` |
-| `JWT_SECRET` | Secreto para firmar el token | *(sin valor en el repo)* |
+| `JWT_SECRET` | Secreto para **verificar** los tokens. Tiene que ser el mismo que usa ms-usuarios para firmarlos | *(sin valor en el repo)* |
 | `JWT_ALGORITHM` | Algoritmo de firma | `HS256` |
 | `JWT_EXPIRE_MINUTES` | Vigencia del token | `60` |
 
@@ -154,35 +152,19 @@ que la base queda con las tablas creadas y 20 filas de prueba.
 > maquinas ya tienen un PostgreSQL del sistema ocupando el 5432. Dentro de la red
 > de Docker la API se conecta a `postgres:5432` normalmente.
 
-### Usuarios de prueba
+### Token para los endpoints protegidos
 
-Los cuatro usuarios del seed comparten la password **`condominio123`**
-(data de desarrollo, no una credencial real):
+El login vive en `ms-usuarios` (puerto 9006). Para escribir en esta API hay que
+pedirle un token a ese servicio:
 
-| Email | Rol |
-|-------|-----|
-| `admin@condominio.com` | ADMIN |
-| `lucia.vargas@example.com` | RESIDENTE |
-| `ricardo.salazar@example.com` | RESIDENTE |
-| `teresa.ampuero@example.com` | RESIDENTE |
+```bash
+curl -X POST http://localhost:9006/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@condominio.com","password":"condominio123"}'
+```
 
-## Coleccion de Postman
-
-[postman/ms-residentes.postman_collection.json](postman/ms-residentes.postman_collection.json)
-trae los 23 requests de la API listos para ejecutar.
-
-1. En Postman: **Import** y elegir ese archivo.
-2. Correr **`1. Auth / Login (admin)`**. Un script guarda el token en la variable
-   `{{token}}`, asi que el resto de los endpoints protegidos ya quedan
-   autenticados solos.
-3. Ejecutar cualquier carpeta.
-
-Incluye una carpeta **`6. Casos de error`** que demuestra que la API rechaza lo
-que tiene que rechazar: 401 sin token, 401 con password incorrecta, 404 y 422.
-
-Para apuntar a la VM de produccion en vez de local, cambiar la variable
-`base_url` de la coleccion por `http://<ip-vm-produccion>:9001`. Los 23 requests
-la usan, no hay que tocarlos uno por uno.
+y mandarlo aca como `Authorization: Bearer <token>`. Los dos servicios tienen que
+compartir el mismo `JWT_SECRET`.
 
 ### Comandos utiles
 
@@ -239,11 +221,11 @@ docker push <usuario>/ms-residentes:0.1.0
 ```
 app/
 ├── main.py       # instancia FastAPI (stub)
-├── routers/      # endpoints por recurso (auth, usuarios, residentes, unidades)
+├── routers/      # endpoints por recurso (edificios, unidades, residentes)
 ├── models/       # modelos SQLAlchemy
 ├── schemas/      # esquemas Pydantic
 ├── config.py     # lee y valida las variables de entorno
-├── security/     # hash de passwords y emision/validacion de JWT
+├── security/     # verificacion de los JWT que emite ms-usuarios
 └── db/           # sesion y conexion a PostgreSQL
 docs/
 ├── der.md              # diagrama entidad-relacion (placeholder)
@@ -257,8 +239,9 @@ postman/
 
 ## Estado
 
-**Funcionando en local.** Endpoints de auth, usuarios, edificios, unidades y
-residentes implementados sobre PostgreSQL, con datos de prueba cargados.
+**Funcionando en local.** Endpoints de edificios, unidades y residentes sobre
+PostgreSQL, con datos de prueba cargados y las escrituras protegidas con los
+tokens de ms-usuarios.
 
 Pendiente: desplegar en la VM de produccion de AWS y publicar la imagen en
 Docker Hub.

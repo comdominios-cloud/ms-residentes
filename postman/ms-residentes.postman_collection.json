@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "ms-residentes | CS2032 Condominios",
-    "description": "Microservicio de edificios, unidades, residentes y usuarios.\n\nCOMO USARLA\n1. Corre 'Auth / Login (admin)' una vez: el token se guarda solo en {{token}}.\n2. Ya podes ejecutar cualquier endpoint protegido.\n\nPara apuntar a la VM de AWS, cambia la variable base_url y listo.\n\nUsuarios de prueba (password: condominio123):\n  admin@condominio.com        -> ADMIN\n  lucia.vargas@example.com    -> RESIDENTE",
+    "description": "Microservicio de edificios, unidades y residentes.\n\nCOMO USARLA\n1. Corre '1. Token / Login en ms-usuarios': pide el token al microservicio\n   ms-usuarios (puerto 9006) y lo guarda en {{token}}.\n2. Ya podes ejecutar los endpoints de escritura, que exigen token.\n\nLos GET de edificios, unidades y residentes son publicos: no necesitan token.\n\nEsta API NO tiene tabla de usuarios: solo verifica la firma de los tokens\nque emite ms-usuarios, usando el mismo JWT_SECRET. No hay llamada HTTP\nentre los dos servicios.\n\nUsuario de prueba: admin@condominio.com / condominio123",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -11,9 +11,14 @@
       "description": "Cambiar por http://<ip-vm-produccion>:9001 al desplegar"
     },
     {
+      "key": "usuarios_url",
+      "value": "http://localhost:9006",
+      "description": "ms-usuarios: es quien emite los tokens"
+    },
+    {
       "key": "token",
       "value": "",
-      "description": "Lo llena solo el request de login"
+      "description": "Lo llena el request de login"
     },
     {
       "key": "password_demo",
@@ -55,10 +60,10 @@
       ]
     },
     {
-      "name": "1. Auth",
+      "name": "1. Token (viene de ms-usuarios)",
       "item": [
         {
-          "name": "Login (admin)",
+          "name": "Login en ms-usuarios",
           "request": {
             "method": "POST",
             "header": [
@@ -68,20 +73,20 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/auth/login",
+              "raw": "{{usuarios_url}}/auth/login",
               "host": [
-                "{{base_url}}"
+                "{{usuarios_url}}"
               ],
               "path": [
                 "auth",
                 "login"
               ]
             },
-            "description": "EMPEZAR POR ACA. Guarda el token automaticamente en {{token}}.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"admin@condominio.com\",\n  \"password\": \"{{password_demo}}\"\n}"
-            }
+            },
+            "description": "Pega a ms-usuarios (9006), NO a esta API. Guarda el token en {{token}} para usarlo aca. Es la prueba de que un token emitido por un microservicio lo acepta otro."
           },
           "event": [
             {
@@ -89,174 +94,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "// Guarda el token en la variable de la coleccion.",
-                  "// Asi el resto de los requests quedan autenticados sin copiar y pegar nada.",
                   "if (pm.response.code === 200) {",
-                  "    const data = pm.response.json();",
-                  "    pm.collectionVariables.set('token', data.access_token);",
-                  "    console.log('Token guardado, vence en ' + data.expires_in + 's');",
+                  "    pm.collectionVariables.set('token', pm.response.json().access_token);",
                   "}",
-                  "",
-                  "pm.test('Login exitoso', function () {",
+                  "pm.test('Login exitoso en ms-usuarios', function () {",
                   "    pm.response.to.have.status(200);",
-                  "});",
-                  "pm.test('Devuelve un access_token', function () {",
-                  "    pm.expect(pm.response.json()).to.have.property('access_token');",
-                  "});",
-                  "pm.test('NO expone el password_hash', function () {",
-                  "    pm.expect(JSON.stringify(pm.response.json())).to.not.include('password_hash');",
                   "});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Login (residente)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/auth/login",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
-            },
-            "description": "Mismo login con un usuario de rol RESIDENTE.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"lucia.vargas@example.com\",\n  \"password\": \"{{password_demo}}\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "// Guarda el token en la variable de la coleccion.",
-                  "// Asi el resto de los requests quedan autenticados sin copiar y pegar nada.",
-                  "if (pm.response.code === 200) {",
-                  "    const data = pm.response.json();",
-                  "    pm.collectionVariables.set('token', data.access_token);",
-                  "    console.log('Token guardado, vence en ' + data.expires_in + 's');",
-                  "}",
-                  "",
-                  "pm.test('Login exitoso', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "pm.test('Devuelve un access_token', function () {",
-                  "    pm.expect(pm.response.json()).to.have.property('access_token');",
-                  "});",
-                  "pm.test('NO expone el password_hash', function () {",
-                  "    pm.expect(JSON.stringify(pm.response.json())).to.not.include('password_hash');",
-                  "});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Register",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/auth/register",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "auth",
-                "register"
-              ]
-            },
-            "description": "Crea una cuenta nueva. Devuelve el token directo, sin pedir login aparte.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"nuevo.vecino@example.com\",\n  \"password\": \"micontrasena123\",\n  \"residente_id\": 2\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "// Guarda el token en la variable de la coleccion.",
-                  "// Asi el resto de los requests quedan autenticados sin copiar y pegar nada.",
-                  "if (pm.response.code === 200) {",
-                  "    const data = pm.response.json();",
-                  "    pm.collectionVariables.set('token', data.access_token);",
-                  "    console.log('Token guardado, vence en ' + data.expires_in + 's');",
-                  "}",
-                  "",
-                  "pm.test('Login exitoso', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "pm.test('Devuelve un access_token', function () {",
-                  "    pm.expect(pm.response.json()).to.have.property('access_token');",
-                  "});",
-                  "pm.test('NO expone el password_hash', function () {",
-                  "    pm.expect(JSON.stringify(pm.response.json())).to.not.include('password_hash');",
-                  "});"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Responde 201\", function () { pm.response.to.have.status(201); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Me (quien soy)",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/auth/me",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "auth",
-                "me"
-              ]
-            },
-            "description": "Devuelve la cuenta duena del token. Sirve para validar la sesion."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Responde 200\", function () { pm.response.to.have.status(200); });"
                 ]
               }
             }
@@ -646,69 +489,32 @@
       ]
     },
     {
-      "name": "5. Usuarios",
+      "name": "5. Casos de error (para la demo)",
       "item": [
         {
-          "name": "Listar usuarios",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/usuarios",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "usuarios"
-              ]
-            },
-            "description": "Requiere token. Fijate que la respuesta NO trae password_hash."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Responde 200\", function () { pm.response.to.have.status(200); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Crear usuario",
+          "name": "Escritura sin token -> 401",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
               }
             ],
             "url": {
-              "raw": "{{base_url}}/usuarios",
+              "raw": "{{base_url}}/residentes",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "usuarios"
+                "residentes"
               ]
             },
-            "description": "Requiere rol ADMIN.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"portero@condominio.com\",\n  \"password\": \"portero12345\",\n  \"residente_id\": null,\n  \"rol\": \"RESIDENTE\"\n}"
-            }
+              "raw": "{\n  \"unidad_id\": 1,\n  \"nombres\": \"Sin\",\n  \"apellidos\": \"Token\",\n  \"documento\": \"99999999\"\n}"
+            },
+            "description": "Sin el token de ms-usuarios, esta API rechaza la escritura."
           },
           "event": [
             {
@@ -716,51 +522,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Responde 201\", function () { pm.response.to.have.status(201); });"
+                  "pm.test(\"Responde 401\", function () { pm.response.to.have.status(401); });"
                 ]
               }
             }
           ]
         },
-        {
-          "name": "Eliminar usuario 4",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/usuarios/4",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "usuarios",
-                "4"
-              ]
-            },
-            "description": "Requiere rol ADMIN."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Responde 204\", function () { pm.response.to.have.status(204); });"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "6. Casos de error (para la demo)",
-      "item": [
         {
           "name": "Login con password incorrecta -> 401",
           "request": {
@@ -786,34 +553,6 @@
               "mode": "raw",
               "raw": "{\n  \"email\": \"admin@condominio.com\",\n  \"password\": \"clave_incorrecta\"\n}"
             }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Responde 401\", function () { pm.response.to.have.status(401); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Usuarios sin token -> 401",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/usuarios",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "usuarios"
-              ]
-            },
-            "description": "El endpoint protegido rechaza si no viene el header Authorization."
           },
           "event": [
             {

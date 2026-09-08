@@ -1,12 +1,9 @@
 -- ============================================================
 -- ms-residentes | Datos de prueba para el avance del 50%
 -- ============================================================
--- 20 filas legibles: 2 edificios, 6 unidades, 8 residentes, 4 usuarios.
+-- 16 filas legibles: 2 edificios, 6 unidades, 8 residentes.
+-- Las 4 cuentas de usuario viven en el seed de ms-usuarios.
 -- Postgres ejecuta este archivo despues de 01-schema.sql.
---
--- Password de todos los usuarios de demo: condominio123
--- (el hash bcrypt de abajo corresponde a esa cadena; es data de desarrollo,
---  no una credencial real)
 -- ============================================================
 
 -- ---------- edificios (2) ----------
@@ -33,11 +30,3 @@ INSERT INTO residentes (unidad_id, nombres, apellidos, documento, email, telefon
   (5, 'Joaquin', 'Beltran Cordova', '47654321', 'joaquin.beltran@example.com','987654326', 'INQUILINO'),
   (5, 'Paula',   'Beltran Cordova', '47654322', 'paula.beltran@example.com',  '987654327', 'INQUILINO'),
   (6, 'Ernesto', 'Ferreyra Luna',   '10293847', 'ernesto.ferreyra@example.com','987654328','PROPIETARIO');
-
--- ---------- usuarios (4) ----------
--- El administrador no esta ligado a ninguna unidad: residente_id NULL.
-INSERT INTO usuarios (residente_id, email, password_hash, rol) VALUES
-  (NULL, 'admin@condominio.com',        '$2b$12$k2l7LY/mmNy6g2MddikGjeUoTtWIAkUJ0fgGaEJilFBlkljn12lna', 'ADMIN'),
-  (1,    'lucia.vargas@example.com',    '$2b$12$k2l7LY/mmNy6g2MddikGjeUoTtWIAkUJ0fgGaEJilFBlkljn12lna', 'RESIDENTE'),
-  (4,    'ricardo.salazar@example.com', '$2b$12$k2l7LY/mmNy6g2MddikGjeUoTtWIAkUJ0fgGaEJilFBlkljn12lna', 'RESIDENTE'),
-  (5,    'teresa.ampuero@example.com',  '$2b$12$k2l7LY/mmNy6g2MddikGjeUoTtWIAkUJ0fgGaEJilFBlkljn12lna', 'RESIDENTE');

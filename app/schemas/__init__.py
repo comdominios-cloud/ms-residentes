@@ -1,4 +1,3 @@
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 from app.schemas.edificio import EdificioOut
 from app.schemas.residente import (
     ResidenteCreate,
@@ -7,12 +6,8 @@ from app.schemas.residente import (
     ResidenteUpdate,
 )
 from app.schemas.unidad import UnidadDetalle, UnidadOut
-from app.schemas.usuario import UsuarioCreate, UsuarioOut
 
 __all__ = [
-    "LoginRequest",
-    "RegisterRequest",
-    "TokenResponse",
     "EdificioOut",
     "ResidenteCreate",
     "ResidenteDetalle",
@@ -20,6 +15,4 @@ __all__ = [
     "ResidenteUpdate",
     "UnidadDetalle",
     "UnidadOut",
-    "UsuarioCreate",
-    "UsuarioOut",
 ]

@@ -53,24 +53,11 @@ CREATE TABLE IF NOT EXISTS residentes (
 );
 
 -- ------------------------------------------------------------
--- Tabla: usuarios  (cuentas de acceso; relacionada con residentes)
--- Cubre register / login / crear / eliminar que pidio el ACL.
+-- NOTA: la tabla `usuarios` ya no vive aca.
+-- Las cuentas de acceso (register / login) son del microservicio ms-usuarios,
+-- que tiene su propia base `condominio_usuarios`. Alla, `residente_id` apunta
+-- a los ids de esta tabla `residentes` como identificador logico.
 -- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS usuarios (
-    id             BIGSERIAL PRIMARY KEY,
-    residente_id   BIGINT,                        -- NULL para el administrador
-    email          VARCHAR(160) NOT NULL,
-    password_hash  VARCHAR(255) NOT NULL,         -- NUNCA guardar el password en claro
-    rol            VARCHAR(20)  NOT NULL DEFAULT 'RESIDENTE',
-    activo         BOOLEAN      NOT NULL DEFAULT TRUE,
-    ultimo_login   TIMESTAMP,
-    creado_en      TIMESTAMP    NOT NULL DEFAULT NOW(),
-    CONSTRAINT fk_usuarios_residente
-        FOREIGN KEY (residente_id) REFERENCES residentes(id),
-    CONSTRAINT uq_usuarios_email UNIQUE (email),
-    CONSTRAINT ck_usuarios_rol CHECK (rol IN ('ADMIN', 'RESIDENTE'))
-);
 
 CREATE INDEX IF NOT EXISTS idx_unidades_edificio   ON unidades(edificio_id);
 CREATE INDEX IF NOT EXISTS idx_residentes_unidad   ON residentes(unidad_id);
-CREATE INDEX IF NOT EXISTS idx_usuarios_residente  ON usuarios(residente_id);

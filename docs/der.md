@@ -8,18 +8,18 @@
 - **edificios**: torres o bloques del condominio.
 - **unidades**: departamentos, pertenecen a un edificio.
 - **residentes**: personas que habitan o son propietarias de una unidad.
-- **usuarios**: cuentas de acceso al sistema (register / login), asociadas a un
-  residente. El administrador tiene `residente_id` nulo.
+
+Las **cuentas de acceso** ya no estan aca: son del microservicio ms-usuarios,
+con su propia base.
 
 ## Relaciones
 
 ```
-edificios (1) ──< (N) unidades (1) ──< (N) residentes (1) ──< (N) usuarios
+edificios (1) ──< (N) unidades (1) ──< (N) residentes
 ```
 
 - Un edificio tiene muchas unidades (`unidades.edificio_id` -> `edificios.id`).
 - Una unidad tiene muchos residentes (`residentes.unidad_id` -> `unidades.id`).
-- Un residente tiene su cuenta de usuario (`usuarios.residente_id` -> `residentes.id`).
 - La relacion obligatoria del curso (minimo 2 tablas relacionadas) es
   **unidades <- residentes**.
 
