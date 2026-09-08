@@ -39,7 +39,7 @@ web-condominio ──> balanceador ──> ms-residentes :9001 ──> PostgreSQ
 | Framework   | FastAPI                   |
 | Base de datos | **PostgreSQL 16** (SQL) |
 | ORM         | SQLAlchemy + psycopg      |
-| Autenticacion | passlib (hash) + JWT    |
+| Autenticacion | bcrypt (hash) + JWT     |
 | Documentacion | Swagger-UI en `/docs`   |
 | Contenedor  | Docker                    |
 
@@ -132,31 +132,46 @@ Luego abrir `http://localhost:9001/docs`.
 
 ### Con PostgreSQL incluido (desarrollo local)
 
-```yaml
-services:
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports: ["5432:5432"]
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-      - ./docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
-
-  ms-residentes:
-    build: .
-    ports: ["9001:8000"]
-    env_file: .env
-    depends_on: [postgres]
-
-volumes:
-  pg_data:
-```
+El repo trae un [docker-compose.yml](docker-compose.yml) que levanta la API y su
+PostgreSQL juntos:
 
 ```bash
-docker compose up --build
+cp .env.example .env      # completar credenciales
+docker compose up -d --build
+```
+
+Al arrancar por primera vez, PostgreSQL ejecuta automaticamente
+[docs/schema.sql](docs/schema.sql) y [docs/seed_data.sql](docs/seed_data.sql), asi
+que la base queda con las tablas creadas y 20 filas de prueba.
+
+| Que | Donde |
+|-----|-------|
+| API | http://localhost:9001 |
+| Swagger-UI | http://localhost:9001/docs |
+| PostgreSQL desde tu maquina | `localhost:55432` |
+
+> El puerto **55432** es solo el mapeo hacia el host: se eligio asi porque muchas
+> maquinas ya tienen un PostgreSQL del sistema ocupando el 5432. Dentro de la red
+> de Docker la API se conecta a `postgres:5432` normalmente.
+
+### Usuarios de prueba
+
+Los cuatro usuarios del seed comparten la password **`condominio123`**
+(data de desarrollo, no una credencial real):
+
+| Email | Rol |
+|-------|-----|
+| `admin@condominio.com` | ADMIN |
+| `lucia.vargas@example.com` | RESIDENTE |
+| `ricardo.salazar@example.com` | RESIDENTE |
+| `teresa.ampuero@example.com` | RESIDENTE |
+
+### Comandos utiles
+
+```bash
+docker compose logs -f api      # ver los logs de la API
+docker compose down             # apagar (la data del volumen se conserva)
+docker compose down -v          # apagar Y borrar la data
 ```
 
 ### En AWS
@@ -182,15 +197,21 @@ app/
 ├── routers/      # endpoints por recurso (auth, usuarios, residentes, unidades)
 ├── models/       # modelos SQLAlchemy
 ├── schemas/      # esquemas Pydantic
+├── config.py     # lee y valida las variables de entorno
 ├── security/     # hash de passwords y emision/validacion de JWT
 └── db/           # sesion y conexion a PostgreSQL
 docs/
 ├── der.md              # diagrama entidad-relacion (placeholder)
 ├── schema.sql          # DDL inicial (PostgreSQL)
+├── seed_data.sql       # 20 filas de prueba para el avance
 └── seed_fake_data.py   # carga masiva de 20,000 registros (placeholder)
 tests/
 ```
 
 ## Estado
 
-Andamiaje inicial. Sin endpoints ni logica de negocio implementados.
+**Funcionando en local.** Endpoints de auth, usuarios, edificios, unidades y
+residentes implementados sobre PostgreSQL, con datos de prueba cargados.
+
+Pendiente: desplegar en la VM de produccion de AWS y publicar la imagen en
+Docker Hub.

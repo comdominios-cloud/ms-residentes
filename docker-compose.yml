@@ -1,0 +1,50 @@
+# Levanta el microservicio junto a su PostgreSQL para desarrollo local.
+#   docker compose up --build
+services:
+  postgres:
+    image: postgres:16
+    container_name: ms-residentes-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      # 55432 en tu maquina -> 5432 dentro del contenedor.
+      # Se usa el 55432 porque este equipo ya tiene un PostgreSQL del sistema
+      # ocupando el 5432. La API no usa este mapeo: dentro de la red de Docker
+      # se conecta a postgres:5432 directamente.
+      - "55432:5432"
+    volumes:
+      # Volumen nombrado: la data sobrevive a `docker compose down`.
+      - pg_data:/var/lib/postgresql/data
+      # Postgres ejecuta estos .sql EN ORDEN ALFABETICO, solo la primera vez
+      # que se crea el volumen.
+      - ./docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./docs/seed_data.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      # La API no debe arrancar antes de que Postgres acepte conexiones.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    container_name: ms-residentes-api
+    ports:
+      # 9001 hacia afuera (rango del curso) -> 8000 dentro del contenedor.
+      - "9001:8000"
+    env_file: .env
+    environment:
+      # Dentro de la red de Compose, el host es el NOMBRE del servicio.
+      POSTGRES_HOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      # Recarga en caliente: al editar el codigo, uvicorn reinicia solo.
+      - ./app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  pg_data:
