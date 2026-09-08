@@ -192,6 +192,33 @@ docker compose down             # apagar (la data del volumen se conserva)
 docker compose down -v          # apagar Y borrar la data
 ```
 
+### En la VM de produccion
+
+La imagen esta publicada en Docker Hub:
+**[`osomar/ms-residentes`](https://hub.docker.com/r/osomar/ms-residentes)**
+(tags `0.1.0` y `latest`).
+
+En la VM basta con el archivo [docker-compose.prod.yml](docker-compose.prod.yml)
+y un `.env` con la IP privada de la VM de base de datos:
+
+```bash
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+```
+
+No construye nada: baja la imagen ya armada. Las **dos VM de produccion gemelas**
+usan el mismo archivo y el mismo tag, asi corren identica version.
+
+Para publicar una version nueva de la imagen:
+
+```bash
+docker build -t osomar/ms-residentes:0.2.0 .
+docker push osomar/ms-residentes:0.2.0
+```
+
+> El [.dockerignore](.dockerignore) deja el `.env` fuera de la imagen. Sin el,
+> las credenciales viajarian dentro de la imagen publicada.
+
 ### En AWS
 
 PostgreSQL corre como contenedor en la **VM de base de datos** (una de los 3

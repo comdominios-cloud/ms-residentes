@@ -1,0 +1,49 @@
+# Despliegue en la VM de PRODUCCION.
+#
+# Diferencias con el docker-compose.yml de desarrollo:
+#   - usa la imagen de Docker Hub en vez de construirla
+#   - no monta el codigo: corre lo que hay DENTRO de la imagen
+#   - sin --reload
+#   - se reinicia solo si la VM se reinicia
+#
+# PostgreSQL NO esta aca: corre en la VM de base de datos (uno de sus 3
+# contenedores). Por eso POSTGRES_HOST debe ser la IP PRIVADA de esa maquina.
+#
+# Uso en la VM:
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Las dos VM de produccion gemelas usan este mismo archivo y el mismo tag,
+# asi corren exactamente la misma version.
+
+services:
+  ms-residentes:
+    image: osomar/ms-residentes:0.1.0
+    container_name: ms-residentes
+    ports:
+      # 9001 hacia afuera (rango 9000-12000 del curso) -> 8000 dentro.
+      - "9001:8000"
+    env_file: .env
+    restart: unless-stopped
+
+# ------------------------------------------------------------------
+# Para la VM DE BASE DE DATOS (esto va en el compose de esa maquina,
+# junto a los contenedores de MySQL y MongoDB de los otros microservicios):
+#
+#   postgres:
+#     image: postgres:16
+#     container_name: condominio-postgres
+#     environment:
+#       POSTGRES_DB: condominio_residentes
+#       POSTGRES_USER: ${POSTGRES_USER}
+#       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - pg_data:/var/lib/postgresql/data
+#       - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+#       - ./seed_data.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+#     restart: unless-stopped
+#
+#   (copiar docs/schema.sql y docs/seed_data.sql de este repo a esa VM)
+# ------------------------------------------------------------------
