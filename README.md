@@ -237,6 +237,12 @@ postman/
 └── ms-residentes.postman_collection.json   # 23 requests para la demo
 ```
 
+## Despliegue en AWS
+
+Paso a paso en [DESPLIEGUE.md](DESPLIEGUE.md): crear la base en la VM de base de
+datos, armar el `.env` en la VM de produccion y levantar los contenedores desde
+Docker Hub.
+
 ## Estado
 
 **Funcionando en local.** Endpoints de edificios, unidades y residentes sobre
