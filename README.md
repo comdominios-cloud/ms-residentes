@@ -243,6 +243,24 @@ Paso a paso en [DESPLIEGUE.md](DESPLIEGUE.md): crear la base en la VM de base de
 datos, armar el `.env` en la VM de produccion y levantar los contenedores desde
 Docker Hub.
 
+## Verificar el despliegue
+
+[scripts/verificar-despliegue.sh](scripts/verificar-despliegue.sh) comprueba en
+unos segundos toda la cadena: el balanceador, los 6 microservicios con su base,
+la emision del token en ms-usuarios y que ms-residentes lo acepte, el frontend
+en Amplify y el proxy `/api/`.
+
+```bash
+./scripts/verificar-despliegue.sh
+```
+
+Cada falla dice de quien depende. **Correrlo antes de la asesoria**: las
+instancias se apagan solas y el ALB pasa a 503 sin aviso.
+
+La prueba del token no inserta datos: intenta crear un residente con un documento
+que ya existe en el seed, asi la respuesta esperada es `409`. Si devuelve `401`,
+el `JWT_SECRET` no coincide entre los dos `.env`.
+
 ## Estado
 
 **Funcionando en local.** Endpoints de edificios, unidades y residentes sobre
