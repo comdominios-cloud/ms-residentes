@@ -251,9 +251,13 @@ Docker Hub.
 ## Verificar el despliegue
 
 [scripts/verificar-despliegue.sh](scripts/verificar-despliegue.sh) comprueba en
-unos segundos toda la cadena: el balanceador, los 6 microservicios con su base,
-la emision del token en ms-usuarios y que ms-residentes lo acepte, el frontend
-en Amplify y el proxy `/api/`.
+unos segundos toda la cadena: el balanceador, los microservicios con su base, las
+rutas que usa el frontend, la emision del token en ms-usuarios y que
+ms-residentes lo acepte, el frontend en Amplify y el proxy `/api/`.
+
+El ALB usa **ruteo por ruta** sobre el puerto 80 (no un listener por puerto), asi
+que el script prueba rutas: si `GET /residentes` devuelve filas, quedan
+verificados de una vez el servicio, la regla del balanceador y la base.
 
 ```bash
 ./scripts/verificar-despliegue.sh
