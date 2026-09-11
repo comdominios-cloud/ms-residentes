@@ -263,6 +263,13 @@ verificados de una vez el servicio, la regla del balanceador y la base.
 ./scripts/verificar-despliegue.sh
 ```
 
+Para verificar tambien el tramo del API Gateway, que es el que da el HTTPS que
+necesita el frontend:
+
+```bash
+APIGW=https://xxxxx.execute-api.us-east-1.amazonaws.com ./scripts/verificar-despliegue.sh
+```
+
 Cada falla dice de quien depende. **Correrlo antes de la asesoria**: las
 instancias se apagan solas y el ALB pasa a 503 sin aviso.
 

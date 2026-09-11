@@ -13,6 +13,10 @@
 
 ALB="${ALB:-http://alb-condominio-678852222.us-east-1.elb.amazonaws.com}"
 FRONT="${FRONT:-https://main.d25obrvgff3lqx.amplifyapp.com}"
+# API Gateway que da el HTTPS delante del balanceador. Sin esta variable, ese
+# tramo no se verifica. Pasarla asi:
+#   APIGW=https://xxxxx.execute-api.us-east-1.amazonaws.com ./scripts/verificar-despliegue.sh
+APIGW="${APIGW:-}"
 USUARIO_DEMO="${USUARIO_DEMO:-admin@condominio.com}"
 PASS_DEMO="${PASS_DEMO:-condominio123}"
 TIMEOUT="${TIMEOUT:-8}"
@@ -134,15 +138,33 @@ titulo "Frontend"
 c=$(codigo "$FRONT/")
 [ "$c" = "200" ] && bien "Amplify sirve la SPA" "HTTP 200" || mal "Amplify" "HTTP $c"
 
-# Sin esto el frontend carga pero ninguna llamada a la API funciona.
-c=$(codigo "$FRONT/api/residentes/residentes")
-case "$c" in
-  200)     bien "proxy /api/ hacia los microservicios" "HTTP 200" ;;
-  301|302) mal "proxy /api/ sin configurar" "faltan los rewrites en Amplify (@alxgr-08)" ;;
-  404)     mal "proxy /api/ sin configurar" "faltan los rewrites en Amplify (@alxgr-08)" ;;
-  502|504) mal "proxy /api/ sin destino" "el rewrite existe pero el ALB no responde" ;;
-  *)       mal "proxy /api/" "HTTP $c" ;;
-esac
+# ------------------------------------------------------------
+titulo "API Gateway (el HTTPS que usa el frontend)"
+# ------------------------------------------------------------
+# El ALB responde solo por HTTP y la SPA se sirve por HTTPS: el navegador
+# bloquearia esas llamadas. API Gateway resuelve ese tramo.
+if [ -z "$APIGW" ]; then
+  aviso "sin verificar" "pasar APIGW=https://xxxxx.execute-api.us-east-1.amazonaws.com"
+else
+  c=$(codigo "$APIGW/residentes")
+  case "$c" in
+    200) bien "API Gateway -> ALB -> ms-residentes" "HTTP 200" ;;
+    503) mal "API Gateway llega al ALB" "pero el ALB no tiene destinos sanos" ;;
+    404) mal "API Gateway" "404: revisar que la ruta sea ANY /{proxy+} y el stage \$default" ;;
+    000) mal "API Gateway inalcanzable" "sin respuesta" ;;
+    *)   mal "API Gateway" "HTTP $c" ;;
+  esac
+
+  # El preflight tiene que pasar o el navegador cancela toda peticion con token.
+  c=$(codigo -X OPTIONS "$APIGW/auth/register" \
+        -H "Origin: $FRONT" -H "Access-Control-Request-Method: POST" \
+        -H "Access-Control-Request-Headers: content-type")
+  case "$c" in
+    200|204) bien "preflight CORS desde el dominio de Amplify" "HTTP $c" ;;
+    503)     mal "preflight CORS" "503: el ALB sin destinos sanos" ;;
+    *)       mal "preflight CORS" "HTTP $c: el navegador va a bloquear las llamadas" ;;
+  esac
+fi
 
 # ------------------------------------------------------------
 titulo "Resumen"
