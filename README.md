@@ -178,7 +178,12 @@ docker compose down -v          # apagar Y borrar la data
 
 La imagen esta publicada en Docker Hub:
 **[`osomar/ms-residentes`](https://hub.docker.com/r/osomar/ms-residentes)**
-(tags `0.1.0` y `latest`).
+(tags `0.2.0` y `latest`).
+
+> **`0.1.0` esta obsoleta**: es anterior a la separacion de `ms-usuarios`, todavia
+> incluye los endpoints de auth y el modelo `Usuario`. Desplegada contra el
+> esquema actual devuelve 500 al escribir, porque busca una tabla `usuarios` que
+> ya no existe en `condominio_residentes`. Usar **`0.2.0`**.
 
 En la VM basta con el archivo [docker-compose.prod.yml](docker-compose.prod.yml)
 y un `.env` con la IP privada de la VM de base de datos:

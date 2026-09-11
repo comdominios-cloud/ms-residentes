@@ -24,3 +24,5 @@ tests/
 *.md
 docker-compose*.yml
 .dockerignore
+scripts/
+DESPLIEGUE.md

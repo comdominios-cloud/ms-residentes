@@ -147,7 +147,7 @@ chmod 600 ms-residentes.env ms-usuarios.env
 ```yaml
 services:
   ms-residentes:
-    image: osomar/ms-residentes:0.1.0
+    image: osomar/ms-residentes:0.2.0
     container_name: ms-residentes
     ports:
       - "9001:8000"
