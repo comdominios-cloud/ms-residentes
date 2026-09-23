@@ -11,12 +11,21 @@
 # manda una ruta a su target group. Por eso aca se prueban rutas y no puertos.
 # ============================================================
 
-ALB="${ALB:-http://alb-condominio-678852222.us-east-1.elb.amazonaws.com}"
-FRONT="${FRONT:-https://main.d25obrvgff3lqx.amplifyapp.com}"
-# API Gateway que da el HTTPS delante del balanceador. Sin esta variable, ese
-# tramo no se verifica. Pasarla asi:
-#   APIGW=https://xxxxx.execute-api.us-east-1.amazonaws.com ./scripts/verificar-despliegue.sh
+# El balanceador es INTERNO: desde fuera de la VPC no responde, y eso es lo
+# correcto segun el enunciado. Por eso todas las pruebas salen por el API
+# Gateway, que es el unico recurso publico. Si se corre desde dentro de la VPC
+# se puede pasar ALB=http://... para probar el balanceador directamente.
 APIGW="${APIGW:-}"
+ALB="${ALB:-}"
+if [ -z "$APIGW" ] && [ -z "$ALB" ]; then
+  echo "Falta indicar por donde entrar. Una de las dos:" >&2
+  echo "  APIGW=https://xxxxx.execute-api.us-east-1.amazonaws.com $0" >&2
+  echo "  ALB=http://<dns-interno>  $0   (solo desde dentro de la VPC)" >&2
+  exit 2
+fi
+# Punto de entrada para todas las pruebas de rutas.
+BASE="${APIGW:-$ALB}"
+FRONT="${FRONT:-https://main.d25obrvgff3lqx.amplifyapp.com}"
 USUARIO_DEMO="${USUARIO_DEMO:-admin@condominio.com}"
 PASS_DEMO="${PASS_DEMO:-condominio123}"
 TIMEOUT="${TIMEOUT:-8}"
@@ -37,14 +46,14 @@ codigo () { curl -s -m "$TIMEOUT" -o /dev/null -w "%{http_code}" "$@" 2>/dev/nul
 cuerpo () { curl -s -m "$TIMEOUT" "$@" 2>/dev/null; }
 
 # ------------------------------------------------------------
-titulo "Balanceador"
+titulo "Punto de entrada"
 # ------------------------------------------------------------
-c=$(codigo "$ALB/")
+c=$(codigo "$BASE/health")
 case "$c" in
-  200) bien "ALB responde" "HTTP 200" ;;
-  503) mal "ALB sin destinos sanos" "instancias apagadas o contenedores caidos" ;;
-  000) mal "ALB inalcanzable" "sin respuesta" ;;
-  *)   aviso "ALB responde" "HTTP $c" ;;
+  200) bien "el balanceador reparte y responde" "HTTP 200" ;;
+  503) mal "balanceador sin destinos sanos" "instancias apagadas o contenedores caidos" ;;
+  000) mal "punto de entrada inalcanzable" "sin respuesta" ;;
+  *)   aviso "punto de entrada" "HTTP $c" ;;
 esac
 
 # ------------------------------------------------------------
@@ -52,8 +61,8 @@ titulo "Microservicios (via ruteo por ruta)"
 # ------------------------------------------------------------
 
 # --- ms-residentes: si /residentes trae filas, el servicio Y su base andan ---
-filas=$(cuerpo "$ALB/residentes" | grep -o '"documento"' | wc -l)
-c=$(codigo "$ALB/residentes")
+filas=$(cuerpo "$BASE/residentes" | grep -o '"documento"' | wc -l)
+c=$(codigo "$BASE/residentes")
 if [ "$c" = "200" ] && [ "$filas" -gt 0 ]; then
   bien "ms-residentes" "$filas residentes desde PostgreSQL"
 elif [ "$c" = "200" ]; then
@@ -65,7 +74,7 @@ else
 fi
 
 # --- ms-usuarios: el login prueba servicio y base a la vez ---
-respuesta=$(cuerpo -X POST "$ALB/auth/login" -H "Content-Type: application/json" \
+respuesta=$(cuerpo -X POST "$BASE/auth/login" -H "Content-Type: application/json" \
   -d "{\"email\":\"$USUARIO_DEMO\",\"password\":\"$PASS_DEMO\"}")
 token=$(printf '%s' "$respuesta" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
 
@@ -81,7 +90,7 @@ for par in "ms-pagos:/cuotas:@sebastianperez72" \
            "ms-ficha-residente:/ficha/1:@Brisseth-raton" \
            "ms-analitico:/analitica/morosidad-por-edificio:@carloscondor1610"; do
   IFS=: read -r nombre ruta duenio <<< "$par"
-  c=$(codigo "$ALB$ruta")
+  c=$(codigo "$BASE$ruta")
   case "$c" in
     200) bien "$nombre" "responde en $ruta" ;;
     404) aviso "$nombre" "sin desplegar o sin regla de ruta ($duenio)" ;;
@@ -94,7 +103,7 @@ done
 titulo "Rutas de lectura que usa el frontend"
 # ------------------------------------------------------------
 for ruta in /residentes /residentes/1 /unidades /edificios; do
-  c=$(codigo "$ALB$ruta")
+  c=$(codigo "$BASE$ruta")
   if [ "$c" = "200" ]; then
     bien "GET $ruta" "HTTP 200"
   elif [ "$c" = "404" ]; then
@@ -113,18 +122,24 @@ if [ -n "$token" ]; then
   #   409 -> el token paso y llego a la validacion de negocio
   #   401 -> el token fue rechazado (JWT_SECRET distinto)
   #   500 -> imagen desactualizada en la VM
-  c=$(codigo -X POST "$ALB/residentes" \
+  # El documento se toma de un residente que ya esta en la base, no de una
+  # constante: asi la prueba sigue valiendo despues de recargar los datos y
+  # nunca inserta nada.
+  doc=$(cuerpo "$BASE/residentes?limit=1" \
+        | grep -o '"documento":"[^"]*"' | head -1 | cut -d'"' -f4)
+  doc="${doc:-$DOC_EXISTENTE}"
+  c=$(codigo -X POST "$BASE/residentes" \
         -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
-        -d "{\"unidad_id\":1,\"nombres\":\"Prueba\",\"apellidos\":\"Verificacion\",\"documento\":\"$DOC_EXISTENTE\"}")
+        -d "{\"unidad_id\":1,\"nombres\":\"Prueba\",\"apellidos\":\"Verificacion\",\"documento\":\"$doc\"}")
   case "$c" in
     409) bien "token aceptado por ms-residentes" "409, no se insertaron datos" ;;
     401) mal "token RECHAZADO" "el JWT_SECRET no coincide entre los dos .env" ;;
-    500) mal "error interno en ms-residentes" "imagen vieja en la VM: desplegar osomar/ms-residentes:0.2.0" ;;
-    201) aviso "token aceptado" "201: se creo un residente, borrar el documento $DOC_EXISTENTE" ;;
+    500) mal "error interno en ms-residentes" "imagen vieja en la VM: desplegar osomar/ms-residentes:0.3.1" ;;
+    201) aviso "token aceptado" "201: se creo un residente, conviene borrar el documento $doc" ;;
     *)   aviso "respuesta inesperada" "HTTP $c" ;;
   esac
 
-  c=$(codigo -X POST "$ALB/residentes" -H "Content-Type: application/json" \
+  c=$(codigo -X POST "$BASE/residentes" -H "Content-Type: application/json" \
         -d '{"unidad_id":1,"nombres":"X","apellidos":"Y","documento":"99999999"}')
   [ "$c" = "401" ] && bien "escritura sin token rechazada" "401" \
                    || mal "escritura sin token" "deberia dar 401 y dio $c"
