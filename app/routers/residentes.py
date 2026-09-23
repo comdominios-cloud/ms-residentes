@@ -19,15 +19,28 @@ router = APIRouter(prefix="/residentes", tags=["residentes"])
 def listar(
     unidad_id: int | None = Query(None, description="Filtra por unidad"),
     activo: bool | None = Query(None, description="Filtra por estado"),
+    email: str | None = Query(None, description="Filtra por correo exacto"),
+    documento: str | None = Query(None, description="Filtra por documento exacto"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ) -> list[Residente]:
+    """Lista residentes, con filtros opcionales.
+
+    Los filtros por email y por documento existen para que quien conozca ese
+    dato pueda pedir la ficha de una persona en una sola consulta. Sin ellos,
+    el frontend tenia que descargar el padron completo y buscar en el
+    navegador: con 20.000 residentes eso deja de ser viable.
+    """
     stmt = select(Residente).order_by(Residente.id).limit(limit).offset(offset)
     if unidad_id is not None:
         stmt = stmt.where(Residente.unidad_id == unidad_id)
     if activo is not None:
         stmt = stmt.where(Residente.activo == activo)
+    if email is not None:
+        stmt = stmt.where(Residente.email == email)
+    if documento is not None:
+        stmt = stmt.where(Residente.documento == documento)
     return list(db.scalars(stmt))
 
 
